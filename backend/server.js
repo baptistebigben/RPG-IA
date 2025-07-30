@@ -13,6 +13,9 @@ const SocketHandler = require('./websocket/socketHandler');
 const authRoutes = require('./routes/auth');
 const partiesRoutes = require('./routes/parties');
 const sessionsRoutes = require('./routes/sessions');
+const characterSheetsRoutes = require('./routes/characterSheets');
+const characterRoutes = require('./routes/characters');
+const gameMasterRoutes = require('./routes/gameMaster');
 
 // Import du middleware
 const upload = require('./middleware/upload');
@@ -37,6 +40,9 @@ app.use(express.json());
 app.use('/', authRoutes);
 app.use('/parties', partiesRoutes);
 app.use('/sessions', sessionsRoutes);
+app.use('/character-sheets', characterSheetsRoutes);
+app.use('/characters', characterRoutes);
+app.use('/api/game-master', gameMasterRoutes);
 
 // Route de base
 app.get('/', (req, res) => {

@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import CharacterSheetPDF from './CharacterSheetPDF';
+import CharacterSheetPDFAdvanced from './CharacterSheetPDFAdvanced';
 
 const ServerList = ({ 
   parties, 
@@ -16,6 +18,21 @@ const ServerList = ({
   const [renameValue, setRenameValue] = useState('');
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [activeTab, setActiveTab] = useState('servers');
+  const [selectedGame, setSelectedGame] = useState('Donjons & Dragons 5');
+  const [selectedCharacter, setSelectedCharacter] = useState(null);
+  const [showCreateCharacter, setShowCreateCharacter] = useState(false);
+  const [newCharacterName, setNewCharacterName] = useState('');
+  const [characters, setCharacters] = useState({});
+  const [characterData, setCharacterData] = useState(null);
+  const [loadingCharacters, setLoadingCharacters] = useState(false);
+  
+  // Charger les personnages au montage du composant
+  useEffect(() => {
+    if (selectedGame) {
+      loadCharactersForGame(selectedGame);
+    }
+  }, []);
+
   const [recentParties, setRecentParties] = useState(() => {
     try {
       return JSON.parse(sessionStorage.getItem('recentParties') || '[]');
@@ -94,6 +111,116 @@ const ServerList = ({
       if (recents.length > 5) recents = recents.slice(0, 5);
       setRecentParties(recents);
       sessionStorage.setItem('recentParties', JSON.stringify(recents));
+    }
+  };
+
+  const handleGameSelect = async (gameName) => {
+    setSelectedGame(gameName);
+    setSelectedCharacter(null);
+    setShowCreateCharacter(false);
+    await loadCharactersForGame(gameName);
+  };
+
+  const handleCharacterSelect = (character) => {
+    setSelectedCharacter(character);
+    setShowCreateCharacter(false);
+  };
+
+  const handleCreateNewCharacter = () => {
+    setShowCreateCharacter(true);
+    setSelectedCharacter(null);
+    setNewCharacterName('');
+  };
+
+  const loadCharactersForGame = async (gameName) => {
+    setLoadingCharacters(true);
+    try {
+      const response = await fetch(`/characters/user/${pseudo}/${encodeURIComponent(gameName)}`);
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          setCharacters(prev => ({
+            ...prev,
+            [gameName]: result.characters
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement des personnages:', error);
+    } finally {
+      setLoadingCharacters(false);
+    }
+  };
+
+  const handleCreateCharacter = async () => {
+    if (!newCharacterName.trim()) return;
+    
+    try {
+      const response = await fetch('/characters/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: pseudo,
+          gameName: selectedGame,
+          characterName: newCharacterName.trim()
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          // Ajouter le nouveau personnage à la liste
+          setCharacters(prev => ({
+            ...prev,
+            [selectedGame]: [...(prev[selectedGame] || []), result.character]
+          }));
+          
+          // Sélectionner automatiquement le nouveau personnage
+          setSelectedCharacter(result.character);
+          setShowCreateCharacter(false);
+          setNewCharacterName('');
+        } else {
+          alert(result.error || 'Erreur lors de la création du personnage');
+        }
+      } else {
+        alert('Erreur lors de la création du personnage');
+      }
+    } catch (error) {
+      console.error('Erreur lors de la création du personnage:', error);
+      alert('Erreur lors de la création du personnage');
+    }
+  };
+
+  // Fonction pour obtenir les personnages d'un jeu
+  const getCharactersForGame = (gameName) => {
+    return characters[gameName] || [];
+  };
+
+  const handleDeleteCharacter = async (characterId) => {
+    if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce personnage ?')) return;
+    
+    try {
+      const response = await fetch(`/characters/delete/${pseudo}/${encodeURIComponent(selectedGame)}/${characterId}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        // Retirer le personnage de la liste
+        setCharacters(prev => ({
+          ...prev,
+          [selectedGame]: prev[selectedGame].filter(c => c.id !== characterId)
+        }));
+        
+        // Désélectionner si c'était le personnage sélectionné
+        if (selectedCharacter && selectedCharacter.id === characterId) {
+          setSelectedCharacter(null);
+        }
+      } else {
+        alert('Erreur lors de la suppression du personnage');
+      }
+    } catch (error) {
+      console.error('Erreur lors de la suppression du personnage:', error);
+      alert('Erreur lors de la suppression du personnage');
     }
   };
 
@@ -365,85 +492,141 @@ const ServerList = ({
       {/* Contenu de l'onglet Personnage */}
       {activeTab === 'character' && (
         <div className="character-content">
-          <div className="card-discord">
-            <div className="section-title">🎭 Fiche de Personnage</div>
-            <div className="character-form">
-              <div className="form-group">
-                <label className="form-label">Nom du personnage</label>
-                <input 
-                  type="text" 
-                  placeholder="Entrez le nom de votre personnage"
-                  className="form-input"
-                />
+          <div className="character-sheet-container">
+            {/* Sélection du jeu de rôle (20%) */}
+            <div className="game-selection-panel">
+              <div className="section-title">🎲 Jeux de rôle</div>
+              <div className="game-list">
+                {RPG_VERSIONS.map((game, index) => {
+                  const gameIcons = ['⚔️', '🌵', '🐙', '⚡', '🏰', '🔮', '🚀'];
+                  const isActive = selectedGame === game;
+                  
+                  return (
+                    <div 
+                      key={game}
+                      className={`game-item ${isActive ? 'active' : ''}`}
+                      onClick={() => handleGameSelect(game)}
+                    >
+                      <div className="game-icon">{gameIcons[index] || '🎲'}</div>
+                      <div className="game-info">
+                        <div className="game-name">{game}</div>
+                        <div className="game-status">
+                          {isActive ? 'Actif' : 'Disponible'}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-
-              <div className="form-group">
-                <label className="form-label">Classe</label>
-                <select className="form-select">
-                  <option value="">Choisissez une classe</option>
-                  <option value="guerrier">Guerrier</option>
-                  <option value="mage">Mage</option>
-                  <option value="voleur">Voleur</option>
-                  <option value="clerc">Clerc</option>
-                  <option value="ranger">Ranger</option>
-                  <option value="barde">Barde</option>
-                  <option value="paladin">Paladin</option>
-                  <option value="druide">Druide</option>
-                  <option value="moine">Moine</option>
-                  <option value="sorcier">Sorcier</option>
-                  <option value="ensorceleur">Ensorceleur</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Race</label>
-                <select className="form-select">
-                  <option value="">Choisissez une race</option>
-                  <option value="humain">Humain</option>
-                  <option value="elfe">Elfe</option>
-                  <option value="nain">Nain</option>
-                  <option value="halfelin">Halfelin</option>
-                  <option value="demi-orc">Demi-orc</option>
-                  <option value="tieffelin">Tieffelin</option>
-                  <option value="dragonborn">Dragonborn</option>
-                  <option value="gnome">Gnome</option>
-                  <option value="demi-elfe">Demi-elfe</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Niveau</label>
-                <input 
-                  type="number" 
-                  min="1" 
-                  max="20" 
-                  defaultValue="1"
-                  className="form-input"
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Description</label>
-                <textarea 
-                  placeholder="Décrivez votre personnage, son histoire, son apparence..."
-                  rows="6"
-                  className="form-textarea"
-                />
-              </div>
-
-              <button className="btn-discord w-full">
-                💾 Sauvegarder le personnage
-              </button>
             </div>
-          </div>
 
-          <div className="card-discord">
-            <div className="section-title">📋 Personnages sauvegardés</div>
-            <div className="empty-state">
-              Aucun personnage sauvegardé pour le moment.
-              <br />
-              <small>Créez votre premier personnage ci-dessus !</small>
-            </div>
+                         {/* Fiche de personnage (80%) */}
+             <div className="character-sheet-panel">
+               <div className="section-title">🎭 Fiche de Personnage</div>
+               
+               {/* Barre de sélection de personnage */}
+               <div className="character-selection-bar">
+                 <div className="character-selector">
+                   {loadingCharacters ? (
+                     <div className="loading-indicator">⏳ Chargement des personnages...</div>
+                   ) : (
+                     <>
+                       <select 
+                         value={selectedCharacter ? selectedCharacter.id : ''}
+                         onChange={(e) => {
+                           const characterId = parseInt(e.target.value);
+                           const characters = getCharactersForGame(selectedGame);
+                           const character = characters.find(c => c.id === characterId);
+                           handleCharacterSelect(character || null);
+                         }}
+                         className="character-select"
+                       >
+                         <option value="">Sélectionner un personnage...</option>
+                         {getCharactersForGame(selectedGame).map(character => (
+                           <option key={character.id} value={character.id}>
+                             {character.characterName}
+                           </option>
+                         ))}
+                       </select>
+                       
+                       {selectedCharacter && (
+                         <button 
+                           onClick={() => handleDeleteCharacter(selectedCharacter.id)}
+                           className="btn-discord danger small"
+                           title="Supprimer ce personnage"
+                         >
+                           🗑️
+                         </button>
+                       )}
+                     </>
+                   )}
+                 </div>
+                 
+                 <div className="character-actions">
+                   <button 
+                     onClick={handleCreateNewCharacter}
+                     className="btn-discord success"
+                     disabled={loadingCharacters}
+                   >
+                     ➕ Nouveau personnage
+                   </button>
+                 </div>
+               </div>
+
+               <div className="character-sheet-content">
+                                   {showCreateCharacter ? (
+                    <div className="create-character-form">
+                      <div className="form-group">
+                        <label className="form-label">Nom du personnage</label>
+                        <input 
+                          type="text" 
+                          value={newCharacterName}
+                          onChange={(e) => setNewCharacterName(e.target.value)}
+                          placeholder="Entrez le nom de votre personnage"
+                          className="form-input"
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              handleCreateCharacter();
+                            }
+                          }}
+                        />
+                      </div>
+                      <div className="form-actions">
+                        <button 
+                          onClick={handleCreateCharacter}
+                          disabled={!newCharacterName.trim()}
+                          className={`btn-discord success ${!newCharacterName.trim() ? 'disabled' : ''}`}
+                        >
+                          💾 Créer le personnage
+                        </button>
+                        <button 
+                          onClick={() => setShowCreateCharacter(false)}
+                          className="btn-discord outline"
+                        >
+                          ✕ Annuler
+                        </button>
+                      </div>
+                    </div>
+                                   ) : selectedCharacter ? (
+                                         <CharacterSheetPDFAdvanced 
+                       character={selectedCharacter} 
+                       gameName={selectedGame} 
+                       pseudo={pseudo}
+                       onDataChange={setCharacterData}
+                     />
+                 ) : (
+                   <div className="character-sheet-placeholder">
+                     <div className="placeholder-icon">📝</div>
+                     <div className="placeholder-text">
+                       Jeu sélectionné : <strong>{selectedGame}</strong>
+                       <br />
+                       <br />
+                       Sélectionnez un personnage existant ou créez-en un nouveau
+                     </div>
+                   </div>
+                 )}
+               </div>
+             </div>
           </div>
         </div>
       )}

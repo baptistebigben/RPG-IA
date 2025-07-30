@@ -40,13 +40,41 @@ class DatabaseManager {
       )
     `);
 
-    // Vérifier si la colonne destinataires existe dans messages
-    try {
-      this.db.prepare('SELECT destinataires FROM messages LIMIT 1').get();
-    } catch (error) {
-      // Si la colonne n'existe pas, l'ajouter
-      this.db.exec('ALTER TABLE messages ADD COLUMN destinataires TEXT');
-    }
+             // Vérifier si la colonne destinataires existe dans messages
+         try {
+           this.db.prepare('SELECT destinataires FROM messages LIMIT 1').get();
+         } catch (error) {
+           // Si la colonne n'existe pas, l'ajouter
+           this.db.exec('ALTER TABLE messages ADD COLUMN destinataires TEXT');
+         }
+
+         // Créer la table character_sheets si elle n'existe pas
+         this.db.exec(`
+           CREATE TABLE IF NOT EXISTS character_sheets (
+             id INTEGER PRIMARY KEY AUTOINCREMENT,
+             userId TEXT NOT NULL,
+             gameName TEXT NOT NULL,
+             characterName TEXT NOT NULL,
+             characterId INTEGER NOT NULL,
+             pdfFields TEXT NOT NULL,
+             createdAt INTEGER NOT NULL,
+             updatedAt INTEGER NOT NULL,
+             UNIQUE(userId, gameName, characterId)
+           )
+         `);
+
+         // Créer la table characters si elle n'existe pas
+         this.db.exec(`
+           CREATE TABLE IF NOT EXISTS characters (
+             id INTEGER PRIMARY KEY AUTOINCREMENT,
+             userId TEXT NOT NULL,
+             gameName TEXT NOT NULL,
+             characterName TEXT NOT NULL,
+             createdAt INTEGER NOT NULL,
+             updatedAt INTEGER NOT NULL,
+             UNIQUE(userId, gameName, characterName)
+           )
+         `);
   }
 
   close() {
