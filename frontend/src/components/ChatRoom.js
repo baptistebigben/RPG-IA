@@ -71,7 +71,6 @@ const ChatRoom = ({
 
   const handleConfirmCorrection = () => {
     if (interpretation) {
-      // Appel à l'API pour confirmer la correction
       fetch(`/sessions/${sessionId}/confirm-correctContext`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -88,55 +87,79 @@ const ChatRoom = ({
   return (
     <div className="chat-container">
       <div className="main-layout">
+        {/* Panel principal du chat */}
         <div className="chat-panel">
+          {/* Zone des messages */}
           <div className="messages-area" onDrop={handleDrop} onDragOver={e => e.preventDefault()}>
-            {messages
+            {Array.isArray(messages) ? messages
               .filter(m => m && typeof m === 'object' && typeof m.auteur === 'string' && 
                 (typeof m.contenu === 'string' || (typeof m.contenu === 'string' && m.contenu.startsWith('<img '))))
               .map((m, idx) => (
                 <div
                   key={typeof m.id === 'string' || typeof m.id === 'number' ? String(m.id) : idx}
                   className={
-                    'message-bubble ' +
+                    'message-bubble animate-fade-in ' +
                     (m.auteur === 'MJ' ? 'message-mj' : m.auteur === pseudo ? 'message-joueur' : m.auteur === 'Système' ? 'message-system' : '')
                   }
                 >
-                  <b style={{ 
-                    color: (() => {
-                      if (m.auteur === pseudo) return pseudoColor;
-                      const found = Array.isArray(players) && players.find(p => 
-                        (typeof p === 'object' && typeof p.pseudo === 'string' ? p.pseudo === m.auteur : p === m.auteur)
-                      );
-                      return found && typeof found === 'object' ? found.color : undefined;
-                    })() 
-                  }}>
-                    {typeof m.auteur === 'string' ? m.auteur : '[corrompu]' } :
-                  </b>{' '}
-                  {typeof m.contenu === 'string' && m.contenu.startsWith('<img ') ? (
-                    <span dangerouslySetInnerHTML={{ __html: m.contenu }} />
-                  ) : (
-                    m.auteur === 'MJ' ? 
-                      <ReactMarkdown>{typeof m.contenu === 'string' ? m.contenu : '[corrompu]'}</ReactMarkdown> : 
-                      (typeof m.contenu === 'string' ? m.contenu : '[corrompu]')
-                  )}
-                  {m.destinataires && <span style={{ fontStyle: 'italic', color: '#888' }}> (privé)</span>}
+                  <div className="message-header">
+                    <b style={{ 
+                      color: (() => {
+                        if (m.auteur === pseudo) return pseudoColor;
+                        
+                        // Rechercher le joueur dans la liste
+                        if (Array.isArray(players)) {
+                          for (const player of players) {
+                            if (typeof player === 'string' && player === m.auteur) {
+                              return undefined; // Pas de couleur pour les strings
+                            }
+                            if (player && typeof player === 'object' && typeof player.pseudo === 'string' && player.pseudo === m.auteur) {
+                              return typeof player.color === 'string' ? player.color : undefined;
+                            }
+                          }
+                        }
+                        return undefined;
+                      })() 
+                    }}>
+                      {typeof m.auteur === 'string' ? m.auteur : '[corrompu]' }
+                    </b>
+                    {m.destinataires && (
+                      <span className="badge-discord info" style={{ marginLeft: '8px', fontSize: '10px' }}>
+                        Privé
+                      </span>
+                    )}
+                  </div>
+                  <div className="message-content">
+                    {typeof m.contenu === 'string' && m.contenu.startsWith('<img ') ? (
+                      <span dangerouslySetInnerHTML={{ __html: m.contenu }} />
+                    ) : (
+                      m.auteur === 'MJ' ? 
+                        <ReactMarkdown>{typeof m.contenu === 'string' ? m.contenu : '[corrompu]'}</ReactMarkdown> : 
+                        (typeof m.contenu === 'string' ? m.contenu : '[corrompu]')
+                    )}
+                  </div>
                 </div>
-              ))}
+              )) : (
+                <div className="text-sm text-muted italic">Aucun message</div>
+              )}
             <div ref={messagesEndRef} />
           </div>
           
+          {/* Formulaire de chat */}
           <form onSubmit={handleSend} className="chat-form">
             <input 
+              type="text"
               value={message} 
               onChange={e => setMessage(e.target.value)} 
-              placeholder="/message Je pénètre dans la taverne..." 
+              placeholder="Tapez votre message..." 
               className="chat-input" 
               onPaste={handlePaste}
             />
             <input 
+              type="text"
               value={destinataires} 
               onChange={e => setDestinataires(e.target.value)} 
-              placeholder="Destinataires (ex: joueur2,MJ)" 
+              placeholder="Destinataires (optionnel)" 
               className="dest-input" 
             />
             <input 
@@ -146,31 +169,38 @@ const ChatRoom = ({
               ref={fileInputRef} 
               onChange={handleFileUpload} 
             />
-            <button type="button" onClick={() => fileInputRef.current.click()}>📷</button>
-            <button type="submit">Envoyer</button>
+            <button 
+              type="button" 
+              className="btn-discord outline"
+              onClick={() => fileInputRef.current.click()}
+            >
+              📷
+            </button>
+            <button type="submit" className="btn-discord">
+              Envoyer
+            </button>
           </form>
         </div>
         
+        {/* Panel latéral */}
         <div className="side-panel">
-          <button onClick={onLeavePartie} className="side-retour">⟵ Retour</button>
+          {/* Bouton retour */}
+          <button 
+            onClick={onLeavePartie} 
+            className="btn-discord danger w-full"
+          >
+            ← Retour
+          </button>
           
+          {/* Bouton générer image */}
           <button 
             onClick={() => setShowImageModal(true)} 
-            style={{
-              marginBottom: 12, 
-              marginLeft: 0, 
-              width: '100%', 
-              background: 'linear-gradient(90deg, #3d2c5a 0%, #bfa76f 100%)', 
-              color: '#fff', 
-              fontWeight: 'bold', 
-              borderRadius: 8, 
-              fontSize: 16, 
-              padding: '8px 0'
-            }}
+            className="btn-discord secondary w-full"
           >
-            Générer image
+            🎨 Générer image
           </button>
 
+          {/* Modal générateur d'image */}
           {showImageModal && (
             <ImageGenerator 
               onClose={() => setShowImageModal(false)}
@@ -184,89 +214,156 @@ const ChatRoom = ({
             />
           )}
 
-          <div style={{
-            background: '#2d2c44',
-            borderRadius: 12,
-            padding: '12px 18px',
-            marginBottom: 18,
-            color: '#e0cfa9',
-            fontWeight: 'bold',
-            fontSize: '1.13em',
-            boxShadow: '0 2px 8px #000a',
-            border: '1.5px solid #bfa76f',
-            textAlign: 'left'
-          }}>
-            <div style={{fontSize: '1.01em', fontWeight: 600}}>
-              {currentPartie ? currentPartie.nom : 'Partie'}
-              {currentPartie ? 
-                <span style={{fontWeight:400, color:'#bfa76f'}}> ({currentPartie.id})</span> : 
-                sessionId ? <span style={{fontWeight:400, color:'#bfa76f'}}> ({sessionId})</span> : ''
-              }
+          {/* Informations de la partie */}
+          <div className="card-discord">
+            <div className="section-title">
+              🎮 {currentPartie ? currentPartie.nom : 'Partie'}
+            </div>
+            <div className="text-sm text-secondary">
+              ID: {currentPartie ? currentPartie.id : sessionId}
             </div>
           </div>
 
-          <div id="players-box" style={{ fontSize: '0.97em' }}>
-            <b>Joueurs connectés :</b>
+          {/* Liste des joueurs */}
+          <div className="card-discord">
+            <div className="section-title">
+              👥 Joueurs connectés ({players.length})
+            </div>
             <div className="players-list">
-              {players.length > 0 ? (
-                players.flat().filter(p => 
-                  (typeof p === 'string') || (p && typeof p === 'object' && typeof p.pseudo === 'string')
-                ).map((p, idx) => {
-                  if (typeof p === 'string') {
+              {(() => {
+                // Nettoyer et filtrer les joueurs
+                const validPlayers = [];
+                
+                if (Array.isArray(players)) {
+                  players.forEach(player => {
+                    if (typeof player === 'string') {
+                      validPlayers.push({ type: 'string', value: player });
+                    } else if (player && typeof player === 'object' && typeof player.pseudo === 'string') {
+                      validPlayers.push({ type: 'object', value: player });
+                    }
+                  });
+                }
+                
+                if (validPlayers.length === 0) {
+                  return <div className="text-sm text-muted italic">Aucun joueur connecté</div>;
+                }
+                
+                return validPlayers.map((playerData, idx) => {
+                  if (playerData.type === 'string') {
+                    const playerName = playerData.value;
                     return (
-                      <span key={p + idx} style={{
-                        color: p === pseudo ? pseudoColor : undefined,
-                        fontWeight: p === pseudo ? 'bold' : undefined,
-                        display: 'block', 
-                        marginBottom: 6
-                      }}>
-                        {p}
-                      </span>
+                      <div key={`string-${playerName}-${idx}`} className="player-item">
+                        <div 
+                          className="player-avatar"
+                          style={{ backgroundColor: playerName === pseudo ? pseudoColor : '#5865f2' }}
+                        >
+                          {playerName.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="player-name">
+                          {playerName === pseudo ? 'Vous' : playerName}
+                        </div>
+                        <div className="player-status"></div>
+                      </div>
                     );
                   }
-                  if (p && typeof p === 'object' && !Array.isArray(p) && typeof p.pseudo === 'string') {
+                  
+                  if (playerData.type === 'object') {
+                    const player = playerData.value;
                     return (
-                      <span key={p.pseudo + idx} style={{
-                        color: typeof p.color === 'string' ? p.color : undefined,
-                        fontWeight: p.pseudo === pseudo ? 'bold' : undefined,
-                        display: 'block', 
-                        marginBottom: 6
-                      }}>
-                        {p.pseudo}
-                      </span>
+                      <div key={`object-${player.pseudo}-${idx}`} className="player-item">
+                        <div 
+                          className="player-avatar"
+                          style={{ backgroundColor: typeof player.color === 'string' ? player.color : '#5865f2' }}
+                        >
+                          {player.pseudo.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="player-name">
+                          {player.pseudo === pseudo ? 'Vous' : player.pseudo}
+                        </div>
+                        <div className="player-status"></div>
+                      </div>
                     );
                   }
+                  
                   return null;
-                })
-              ) : (
-                <span style={{ color: '#888' }}>(Aucun joueur connecté)</span>
-              )}
+                });
+              })()}
             </div>
           </div>
 
-          <ColorPicker 
-            currentColor={pseudoColor}
-            onColorChange={onUpdateColor}
-          />
-
-          <div id="resume-box" style={{ fontSize: '0.97em' }}>
-            <b>Commandes disponibles :</b>
-            <ul style={{marginTop:8, marginBottom:0, paddingLeft:18, color:'#f3e8ff', fontSize:'1em'}}>
-              <li><b>/roll 2d6+1 & 1d20</b> : Lance les dés (exemple : 2 dés à 6 faces +1, puis 1 dé à 20 faces).</li>
-              <li><b>/start</b> : Lance l'aventure avec le MJ IA.</li>
-              <li><b>/help</b> : Affiche l'aide des commandes disponibles.</li>
-              <li><b>/resume</b> : Demande un résumé de la partie.</li>
-              <li><b>/message ...</b> : Envoie un message privé au MJ IA.</li>
-              <li><b>/correctContext ...</b> : Propose une correction du contexte de la partie.</li>
-              <li><b>/correctStory ...</b> : Propose une correction de l'histoire en cours.</li>
-            </ul>
+          {/* Sélecteur de couleur */}
+          <div className="card-discord">
+            <div className="section-title">
+              🎨 Votre couleur
+            </div>
+            <ColorPicker 
+              currentColor={pseudoColor}
+              onColorChange={onUpdateColor}
+            />
           </div>
 
+          {/* Commandes disponibles */}
+          <div className="card-discord">
+            <div className="section-title">
+              ⚡ Commandes
+            </div>
+            <div className="commands-list">
+              <div className="command-item">
+                <span className="badge-discord primary command-badge">/roll</span>
+                <div className="command-description">
+                  Lance les dés (ex: <code>2d6+1 & 1d20</code>)
+                </div>
+              </div>
+              <div className="command-item">
+                <span className="badge-discord success command-badge">/start</span>
+                <div className="command-description">
+                  Lance l'aventure avec le MJ IA
+                </div>
+              </div>
+              <div className="command-item">
+                <span className="badge-discord warning command-badge">/help</span>
+                <div className="command-description">
+                  Affiche l'aide des commandes
+                </div>
+              </div>
+              <div className="command-item">
+                <span className="badge-discord info command-badge">/resume</span>
+                <div className="command-description">
+                  Demande un résumé de la partie
+                </div>
+              </div>
+              <div className="command-item">
+                <span className="badge-discord primary command-badge">/message</span>
+                <div className="command-description">
+                  Envoie un message privé au MJ
+                </div>
+              </div>
+              <div className="command-item">
+                <span className="badge-discord warning command-badge">/correct</span>
+                <div className="command-description">
+                  Propose une correction du contexte
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Interprétation de correction */}
           {interpretation && (
-            <div style={{ background: '#ffe', padding: 10, marginBottom: 10, fontSize: '0.97em' }}>
-              <b>Interprétation de la correction :</b> {interpretation.interpretation}
-              <button onClick={handleConfirmCorrection} style={{ marginLeft: 10 }}>Confirmer</button>
-              <button onClick={() => setInterpretation(null)} style={{ marginLeft: 5 }}>Annuler</button>
+            <div className="card-discord" style={{ background: 'rgba(250, 166, 26, 0.1)', borderColor: 'var(--color-warning)' }}>
+              <div className="section-title">
+                ⚠️ Interprétation
+              </div>
+              <div className="text-sm mb-3">
+                {interpretation.interpretation}
+              </div>
+              <div className="flex gap-2">
+                <button onClick={handleConfirmCorrection} className="btn-discord success">
+                  Confirmer
+                </button>
+                <button onClick={() => setInterpretation(null)} className="btn-discord outline">
+                  Annuler
+                </button>
+              </div>
             </div>
           )}
         </div>

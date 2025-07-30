@@ -5,6 +5,7 @@ import ChatRoom from './components/ChatRoom';
 import HelpModal from './components/HelpModal';
 import useSocket from './hooks/useSocket';
 import { api } from './services/api';
+import './styles/design-system.css';
 import './App.css';
 
 const PALETTE = ['#6d2e7a', '#bfa76f', '#e07a5f', '#3e2723', '#457b9d', '#43aa8b', '#f9c74f', '#f9844a', '#277da1', '#bc6c25'];
